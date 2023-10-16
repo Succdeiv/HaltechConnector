@@ -10,7 +10,7 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.stencilview import StencilView
 from kivy.uix.progressbar import ProgressBar
 from kivy.properties import StringProperty
-
+#test
 from kivy.clock import Clock
 from functools import partial
 import random
