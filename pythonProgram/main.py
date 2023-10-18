@@ -15,33 +15,25 @@ from kivy.clock import Clock
 from functools import partial
 import random
 
-
-#Set Kivy Size as Size of Screen
+#Enable Fullscreen
 from kivy.core.window import Window
-from kivy.config import Config
-#Config.set('graphics', 'width', '1024')
-#Config.set('graphics', 'height', '600')
-#Window.size = (1600, 900)
-
 #Enable when PI is connected
-#Window.fullscreen = 'auto'
-
+Window.fullscreen = 'auto'
 
 class DashboardApp(App):
-
     def build(self):
         #Set Clocks to Update Information as Required
-        Clock.schedule_interval(partial(self.updateRPM, self), 0.11)
-        Clock.schedule_interval(partial(self.drawGauges, self), .25)
+        Clock.schedule_interval(partial(self.updateRPM, self), 0.01)
+        #Clock.schedule_interval(partial(self.drawGauges, self), .25)
         #Define Layout and Gauges
         LabelBase.register(name='rpmFont', fn_regular='RPM.ttf')
         #RPM Scale
         self.rpmSpeed = 0
-        self.layout = FloatLayout()
+        Window.size = (1280, 720)
+        self.layout = FloatLayout(size=Window.size)
         self.rpmScale = Image(source='images/barScale.png', size=(1600, 200), pos_hint={'x':0, 'y':.36})
         self.layout.add_widget(self.rpmScale)
         self.numberColour = "32F30F"
-
         #RPM Gradient
         self.rpmStencil = StencilView(size_hint=(None,None), size=(1000, 199), pos=(0,487))
         self.rpmBar = Image(source='images/gradBar.png', size=(1600, 199), pos=(-170,487))
@@ -49,6 +41,8 @@ class DashboardApp(App):
         self.layout.add_widget(self.rpmStencil)
         self.rpmReadout = Label(text = "RPM : "+ str(self.rpmSpeed),pos=(-290,140), font_size=50, font_name='rpmFont')
         self.layout.add_widget(self.rpmReadout)
+        self.rpmUpDown = "up"
+
         #self.rpmStencil.width=5000 * 0.1543
         self.last = self.rpmReadout
         ##Define Oil Pressure
@@ -83,7 +77,6 @@ class DashboardApp(App):
         self.layout.add_widget(self.voltageOutline)
         self.voltageLabel = self.lastVoltageLabel = Label(text = "11.89 V" , pos=(350, -45), font_size=30, font_name='rpmFont')
         self.layout.add_widget(self.voltageLabel)
-
         return self.layout
     
     def drawGauges(self, *largs):
@@ -96,9 +89,21 @@ class DashboardApp(App):
 
         #This Code Resets the RPM Speed - Test Only 
         if self.rpmSpeed > 8250:
-            self.rpmSpeed = 0
+            print("1")
+            self.rpmUpDown = "down"
+        elif self.rpmSpeed == 0:
+            print("2")
+            self.rpmUpDown = "up"
+        
+        if self.rpmUpDown == "up":
+            print("3")
+            self.rpmSpeed += 100
+        elif self.rpmUpDown == "down":
+            print("4")
+
+            self.rpmSpeed -= 100
+
         #Increase by 1 increment
-        self.rpmSpeed += 25
         #This updates the length of the bar - RPM * 0.1234 translates engine speed to bar length
         #Max Width = 1250
         #Max RPM = 8100
@@ -180,6 +185,7 @@ class DashboardApp(App):
             return "F99A09"
         elif value > yellow:
             return "FE0000"
+
 
 
 if __name__ == '__main__':
