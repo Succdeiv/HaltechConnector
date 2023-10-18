@@ -13,17 +13,35 @@ from kivy.properties import StringProperty
 #test
 from kivy.clock import Clock
 from functools import partial
+import can
+import cantools
 import random
+import os
 
+#############
+import psutil
+#############
+process = psutil.Process()
+#############
+#Enable Canbus
+os.system('sudo ifconfig can0 down') 
+os.system('sudo ip link set can0 type can bitrate 1000000')
+os.system('sudo ifconfig can0 up')
 #Enable Fullscreen
 from kivy.core.window import Window
 #Enable when PI is connected
 Window.fullscreen = 'auto'
+dbc = cantools.database.load_file('/home/john/HaltechConnector/pythonProgram/Haltech-Broadcast-V2.35.0.dbc')
 
 class DashboardApp(App):
     def build(self):
+        #Enable CanBus
+        self.can_bus = can.interface.Bus('can0', bustype='socketcan')
+        #self.firstID = dbc.get_message_by_name('ID_0x360')
+        #self.canMessage = can.Message(arbitration_id=self.firstID)
         #Set Clocks to Update Information as Required
-        Clock.schedule_interval(partial(self.updateRPM, self), 0.01)
+        Clock.schedule_interval(partial(self.getCanMessages, self), 0.001)
+        #Clock.schedule_interval(partial(self.updateRPM, self), 0.01)
         #Clock.schedule_interval(partial(self.drawGauges, self), .25)
         #Define Layout and Gauges
         LabelBase.register(name='rpmFont', fn_regular='RPM.ttf')
@@ -85,48 +103,18 @@ class DashboardApp(App):
         self.drawWater(self)
 
     def updateRPM(self, *largs):
-        #Testing Code - This needs to be Replaced with CANBUS signal for RPM.
-
-        #This Code Resets the RPM Speed - Test Only 
-        if self.rpmSpeed > 8250:
-            print("1")
-            self.rpmUpDown = "down"
-        elif self.rpmSpeed == 0:
-            print("2")
-            self.rpmUpDown = "up"
-        
-        if self.rpmUpDown == "up":
-            print("3")
-            self.rpmSpeed += 100
-        elif self.rpmUpDown == "down":
-            print("4")
-
-            self.rpmSpeed -= 100
-
-        #Increase by 1 increment
-        #This updates the length of the bar - RPM * 0.1234 translates engine speed to bar length
-        #Max Width = 1250
-        #Max RPM = 8100
-
         self.rpmStencil.width = self.rpmSpeed * 0.1543
-        #Add Colours to the RPM Gauge
-        #Green = 32F30F
-        #Orange = F99A09
-        #Red = FE0000
         self.rpmColour = self.colourByValue(3500, 5500, self.rpmSpeed)
-
         #This line creates the label with the text RPM + The current speed of the Engine
-        #ToDo - Add Better Font
         self.rpmReadout = Label(text = 'RPM : ' + '[color={}]'.format(self.rpmColour) + str(self.rpmSpeed) + '[/color]',pos=(-375,180), font_size=50, font_name='rpmFont', markup=True)
-
         #This line Removes the Last RPM Signal From the Dashboard
         self.layout.remove_widget(self.last)
-
         #This line sets the last current readout to self.last, so it can be removed
         self.last = self.rpmReadout
-
         #This line Re-adds the widget to the screen
         self.layout.add_widget(self.rpmReadout)
+        print(process.memory_info().rss)  # in bytes
+
     
     def drawOilPressure(self, *largs):
         #TEST CODE
@@ -176,6 +164,26 @@ class DashboardApp(App):
         self.lastWaterWidget = self.waterBar
         #print(self.oilPressure)
         self.layout.add_widget(self.waterBar)
+
+    def getCanMessages(self, *largs):
+        self.message = self.can_bus.recv(timeout=0.2)
+        if self.message != None:
+            if self.message.arbitration_id == 864:
+                self.rpmSpeed = dbc.decode_message(self.message.arbitration_id, self.message.data).get('Engine_Speed')
+                #print(dbc.decode_message(self.message.arbitration_id, self.message.data).get('Engine_Speed'))
+
+            elif self.message.arbitration_id == 865:
+                #self.oilPressure = dbc.decode_message(self.message.arbitration_id, self.message.data).get('Oil_Pressure')
+                print(dbc.decode_message(self.message.arbitration_id, self.message.data).get('Oil_Pressure'))
+
+                print(self.message.data)
+        else:
+            print("message = None")
+        #print(dbc.decode_message(self.message.arbitration_id, self.message.data))
+        #messageInfo = dbc.decode_message(self.message.arbitration_id, self.message.data)
+        #if messageInfo.arbitration_id == 'ID_0x360':
+        #    self.rpmSpeed = messageInfo.get("Engine_Speed")
+
 
 
     def colourByValue(self, green, yellow, value):
