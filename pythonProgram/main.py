@@ -8,20 +8,12 @@ from kivy.uix.label import Label
 from kivy.core.text import LabelBase
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.stencilview import StencilView
-from kivy.uix.progressbar import ProgressBar
-from kivy.properties import StringProperty
-#test
+from kivy.logger import Logger, LOG_LEVELS
 from kivy.clock import Clock
 from functools import partial
 import can
 import cantools
-import random
 import os
-
-#############
-import psutil
-#############
-process = psutil.Process()
 #############
 #Enable Canbus
 os.system('sudo ifconfig can0 down') 
@@ -31,18 +23,23 @@ os.system('sudo ifconfig can0 up')
 from kivy.core.window import Window
 #Enable when PI is connected
 Window.fullscreen = 'auto'
+#Load DBC File
 dbc = cantools.database.load_file('/home/john/HaltechConnector/pythonProgram/Haltech-Broadcast-V2.35.0.dbc')
+#Set Logging Mode 
+Logger.setLevel(LOG_LEVELS["info"])
+#filters = [
+#    {"can_id": 0x360, "can_mask": 0, "extended": False},
+#]
+
 
 class DashboardApp(App):
     def build(self):
         #Enable CanBus
-        self.can_bus = can.interface.Bus('can0', bustype='socketcan')
-        #self.firstID = dbc.get_message_by_name('ID_0x360')
-        #self.canMessage = can.Message(arbitration_id=self.firstID)
-        #Set Clocks to Update Information as Required
-        Clock.schedule_interval(partial(self.getCanMessages, self), 0.001)
-        #Clock.schedule_interval(partial(self.updateRPM, self), 0.01)
-        #Clock.schedule_interval(partial(self.drawGauges, self), .25)
+        self.can_bus = can.interface.Bus('can0', bustype='socketcan')#, can_filters=filters)
+        self.can_bus.RECV_LOGGING_LEVEL=0
+        Clock.schedule_interval(partial(self.getCanMessages, self), 0.01)
+        Clock.schedule_interval(partial(self.updateRPM, self), 0.05)
+        Clock.schedule_interval(partial(self.drawGauges, self), 0.05)
         #Define Layout and Gauges
         LabelBase.register(name='rpmFont', fn_regular='RPM.ttf')
         #RPM Scale
@@ -59,13 +56,12 @@ class DashboardApp(App):
         self.layout.add_widget(self.rpmStencil)
         self.rpmReadout = Label(text = "RPM : "+ str(self.rpmSpeed),pos=(-290,140), font_size=50, font_name='rpmFont')
         self.layout.add_widget(self.rpmReadout)
-        self.rpmUpDown = "up"
-
-        #self.rpmStencil.width=5000 * 0.1543
         self.last = self.rpmReadout
+
+
         ##Define Oil Pressure
         #Define Gauge
-        self.oilPressure = 0 
+        self.oilPressure = 0
         self.oilPos = (-480, 50)
         self.oilOutline = Image(source='images/oilOutline.png', pos=self.oilPos)
         self.layout.add_widget(self.oilOutline)
@@ -77,6 +73,7 @@ class DashboardApp(App):
         #Define Label 
         self.oilLabel = Label(text = "45.5 PSI" , pos=(-480, -50), font_size=30, font_name='rpmFont')
         self.layout.add_widget(self.oilLabel)
+        self.lastOilLabel = self.oilLabel
         ##Define Water Temp
         #Define Gauge 
         self.lastWaterWidget = None
@@ -113,28 +110,39 @@ class DashboardApp(App):
         self.last = self.rpmReadout
         #This line Re-adds the widget to the screen
         self.layout.add_widget(self.rpmReadout)
-        print(process.memory_info().rss)  # in bytes
-
     
     def drawOilPressure(self, *largs):
-        #TEST CODE
-        #Needs to be replaced with Canbus input for Oil Pressure
-        #This is Raw Signal - Bar goes from 0 - 32.
 
-        #Resets Oil Pressure (Test Code)
-        if self.oilPressure == 32:
-            self.oilPressure = 0
-        #Iterates Oil pressure
-        self.oilPressure += 1
-        #Builds and image - takes value between 0 and 32.
-        self.oilPressureBar = Image(source='s2kGaugeBars/s2k_' + str(self.oilPressure) + '.png',
-             pos = self.oilPos)
+        #Oil Pressure will be assigned by getCanMessages function
+        #Per the Haltech Specification y = x/10 - 101.3 (oilDisplay = self.oilPressure/10 - 101.3)
+
+        #Get Raw Input of the Haltech 
+        rawSignal = self.oilPressure
+        #Convert To PSI
+        actualSignal = abs(round(rawSignal/6.895))
+
+        #Now define the range as 0-32
+        #PSI Range - Take Actual Signal and Divide by 9. 
+        psiInt = round(actualSignal/2.8)
+        if psiInt >= 32:
+            psiInt = 32
+        self.oilPressureBar = Image(source='s2kGaugeBars/s2k_' + str(psiInt) + '.png', pos = self.oilPos)
         #Removes Old Oil Graph
         if self.lastOilWidget:
             self.layout.remove_widget(self.lastOilWidget)
         self.lastOilWidget = self.oilPressureBar
         #print(self.oilPressure)
+
+        #Define Label for Displaying Raw Output
         self.layout.add_widget(self.oilPressureBar)
+        self.oilLabel = Label(text = "{} PSI".format(str(actualSignal)) , pos=(-480, -50), font_size=30, font_name='rpmFont')
+
+        #This line Removes the Last RPM Signal From the Dashboard
+        self.layout.remove_widget(self.lastOilLabel)
+        #This line sets the last current readout to self.last, so it can be removed
+        self.lastOilLabel = self.oilLabel
+        #This line Re-adds the widget to the screen
+        self.layout.add_widget(self.oilLabel)
 
     def drawVoltage(self, *largs):
         #TEST CODE
@@ -151,9 +159,7 @@ class DashboardApp(App):
         self.layout.add_widget(self.voltageBar)
 
     def drawWater(self, *largs):
-        #TEST CODE
-        #Needs to be replaced with Canbus input for Voltage
-        #This is Raw Signal - Bar goes from 0 - 32.
+
         self.waterTemp = 28
         #Builds and image - takes value between 0 and 32.
         self.waterBar = Image(source='s2kGaugeBars/s2k_' + str(self.waterTemp) + '.png',
@@ -166,24 +172,19 @@ class DashboardApp(App):
         self.layout.add_widget(self.waterBar)
 
     def getCanMessages(self, *largs):
-        self.message = self.can_bus.recv(timeout=0.2)
-        if self.message != None:
-            if self.message.arbitration_id == 864:
-                self.rpmSpeed = dbc.decode_message(self.message.arbitration_id, self.message.data).get('Engine_Speed')
-                #print(dbc.decode_message(self.message.arbitration_id, self.message.data).get('Engine_Speed'))
+            #Check Last 100 Messages, Get Latest Signals - This may need to be updated Later
+            for i in range(100):
+                self.message = self.can_bus.recv(timeout = 0)
+                if self.message != None:
+                    if self.message.arbitration_id == 864:
+                        self.rpmSpeed = dbc.decode_message(self.message.arbitration_id, self.message.data).get('Engine_Speed')
+                        #print(dbc.decode_message(self.message.arbitration_id, self.message.data).get('Engine_Speed'))
 
-            elif self.message.arbitration_id == 865:
-                #self.oilPressure = dbc.decode_message(self.message.arbitration_id, self.message.data).get('Oil_Pressure')
-                print(dbc.decode_message(self.message.arbitration_id, self.message.data).get('Oil_Pressure'))
-
-                print(self.message.data)
-        else:
-            print("message = None")
-        #print(dbc.decode_message(self.message.arbitration_id, self.message.data))
-        #messageInfo = dbc.decode_message(self.message.arbitration_id, self.message.data)
-        #if messageInfo.arbitration_id == 'ID_0x360':
-        #    self.rpmSpeed = messageInfo.get("Engine_Speed")
-
+                    elif self.message.arbitration_id == 865:
+                        self.oilPressure = dbc.decode_message(self.message.arbitration_id, self.message.data).get('Oil_Pressure')
+                        #print(dbc.decode_message(self.message.arbitration_id, self.message.data).get('Oil_Pressure'))
+                else:
+                    print("No Message on Can0")
 
 
     def colourByValue(self, green, yellow, value):
