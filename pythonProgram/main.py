@@ -27,15 +27,18 @@ Window.fullscreen = 'auto'
 dbc = cantools.database.load_file('/home/john/HaltechConnector/pythonProgram/Haltech-Broadcast-V2.35.0.dbc')
 #Set Logging Mode 
 Logger.setLevel(LOG_LEVELS["info"])
-#filters = [
-#    {"can_id": 0x360, "can_mask": 0, "extended": False},
-#]
+filters = [
+    {"can_id": 0x360, "can_mask": 0x7FF}, #Filter for RPM
+    {"can_id": 0x361, "can_mask": 0x7FF}, #Filter for Oil Pressure
+    {"can_id": 0x372, "can_mask": 0x7FF}, #Filter for Voltage
+    {"can_id": 0x3E0, "can_mask": 0x7FF}, #Filter for Coolant
+]
 
 
 class DashboardApp(App):
     def build(self):
         #Enable CanBus
-        self.can_bus = can.interface.Bus('can0', bustype='socketcan')#, can_filters=filters)
+        self.can_bus = can.interface.Bus('can0', bustype='socketcan', can_filters=filters)
         self.can_bus.RECV_LOGGING_LEVEL=0
         Clock.schedule_interval(partial(self.getCanMessages, self), 0.01)
         Clock.schedule_interval(partial(self.updateRPM, self), 0.05)
@@ -112,10 +115,7 @@ class DashboardApp(App):
         self.layout.add_widget(self.rpmReadout)
     
     def drawOilPressure(self, *largs):
-
         #Oil Pressure will be assigned by getCanMessages function
-        #Per the Haltech Specification y = x/10 - 101.3 (oilDisplay = self.oilPressure/10 - 101.3)
-
         #Get Raw Input of the Haltech 
         rawSignal = self.oilPressure
         #Convert To PSI
@@ -145,9 +145,7 @@ class DashboardApp(App):
         self.layout.add_widget(self.oilLabel)
 
     def drawVoltage(self, *largs):
-        #TEST CODE
-        #Needs to be replaced with Canbus input for Voltage
-        #This is Raw Signal - Bar goes from 0 - 32.
+
         self.voltage = 24
         #Builds and image - takes value between 0 and 32.
         self.voltageBar = Image(source='s2kGaugeBars/s2k_' + str(self.voltage) + '.png',
@@ -174,15 +172,19 @@ class DashboardApp(App):
     def getCanMessages(self, *largs):
             #Check Last 100 Messages, Get Latest Signals - This may need to be updated Later
             for i in range(100):
-                self.message = self.can_bus.recv(timeout = 0)
-                if self.message != None:
-                    if self.message.arbitration_id == 864:
-                        self.rpmSpeed = dbc.decode_message(self.message.arbitration_id, self.message.data).get('Engine_Speed')
-                        #print(dbc.decode_message(self.message.arbitration_id, self.message.data).get('Engine_Speed'))
+                message = self.can_bus.recv(timeout = 0)
+                if message != None:
+                    if message.arbitration_id == 864:
+                        self.rpmSpeed = dbc.decode_message(message.arbitration_id, message.data).get('Engine_Speed')
+                        #print(dbc.decode_message(message.arbitration_id, message.data).get('Engine_Speed'))
+                    elif message.arbitration_id == 865:
+                        self.oilPressure = dbc.decode_message(message.arbitration_id, message.data).get('Oil_Pressure')
+                        #print(dbc.decode_message(message.arbitration_id, message.data).get('Oil_Pressure'))
+                    elif message.arbitration_id == 992:
+                        self.waterTemp = dbc.decode_message(message.arbitration_id, message.data).get('Coolant_Temperature')
+                    elif message.arbitration_id == 882:
+                        self.voltage = dbc.decode_message(message.arbitration_id, message.data).get('Battery_Voltage')
 
-                    elif self.message.arbitration_id == 865:
-                        self.oilPressure = dbc.decode_message(self.message.arbitration_id, self.message.data).get('Oil_Pressure')
-                        #print(dbc.decode_message(self.message.arbitration_id, self.message.data).get('Oil_Pressure'))
                 else:
                     print("No Message on Can0")
 
