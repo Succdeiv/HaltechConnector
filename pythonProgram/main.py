@@ -107,7 +107,7 @@ class DashboardApp(App):
         self.voltagePos = (480, 50)
         self.voltageOutline = Image(source='images/batteryOutline.png', pos=self.voltagePos)
         self.layout.add_widget(self.voltageOutline)
-        self.voltageLabel = self.lastVoltageLabel = Label(text = "11.89 V" , pos=(350, -45), font_size=30, font_name='rpmFont')
+        self.voltageLabel = self.lastVoltageLabel = Label(text = "0 V" , pos=(480, -45), font_size=30, font_name='rpmFont')
         self.layout.add_widget(self.voltageLabel)
 
     def updateGauges(self, *largs):
@@ -157,16 +157,27 @@ class DashboardApp(App):
         self.layout.add_widget(self.oilLabel)
 
     def updateVoltage(self, *largs):
-
-        self.voltage = 24
         #Builds and image - takes value between 0 and 32.
-        self.voltageBar = Image(source='s2kGaugeBars/s2k_' + str(self.voltage) + '.png',
+        displayInt = round(self.voltage * 2)
+
+        if displayInt > 32:
+            displayInt = 32
+        self.voltageBar = Image(source='s2kGaugeBars/s2k_' + str(displayInt) + '.png',
              pos = self.voltagePos)
         #Removes Old Voltage Graph
         if self.lastVoltageWidget:
             self.layout.remove_widget(self.lastVoltageWidget)
         self.lastVoltageWidget = self.voltageBar
         self.layout.add_widget(self.voltageBar)
+
+        #Define New and Remove Old Voltage Label
+        self.voltageLabel = Label(text = "{} V".format(self.voltage) , pos=(480, -45), font_size=30, font_name='rpmFont')
+        #This line Removes the Last Oil Signal From the Dashboard
+        self.layout.remove_widget(self.lastVoltageLabel)
+        #This line sets the last current readout to self.last, so it can be removed
+        self.lastVoltageLabel = self.voltageLabel
+        #This line Re-adds the widget to the screen
+        self.layout.add_widget(self.voltageLabel)
 
     def updateWater(self, *largs):
 
