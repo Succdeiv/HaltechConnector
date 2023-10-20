@@ -40,12 +40,22 @@ class DashboardApp(App):
         #Enable CanBus
         self.can_bus = can.interface.Bus('can0', bustype='socketcan', can_filters=filters)
         self.can_bus.RECV_LOGGING_LEVEL=0
+        LabelBase.register(name='rpmFont', fn_regular='RPM.ttf')
+        self.createClockShedule(self)
+        self.buildRPMScale(self)
+        self.buildOilPressure(self)
+        self.buildWater(self)
+        self.buildVoltage(self)
+
+        return self.layout
+    
+    def createClockShedule(self, *largs):
         Clock.schedule_interval(partial(self.getCanMessages, self), 0.01)
         Clock.schedule_interval(partial(self.updateRPM, self), 0.05)
-        Clock.schedule_interval(partial(self.drawGauges, self), 0.1)
-        Clock.schedule_interval(partial(self.drawOilPressure, self), 0.05)
-        #Define Layout and Gauges
-        LabelBase.register(name='rpmFont', fn_regular='RPM.ttf')
+        Clock.schedule_interval(partial(self.updateGauges, self), 0.1)
+        Clock.schedule_interval(partial(self.updateOilPressure, self), 0.05)
+
+    def buildRPMScale(self, *largs):
         #RPM Scale
         self.rpmSpeed = 0
         Window.size = (1280, 720)
@@ -62,9 +72,7 @@ class DashboardApp(App):
         self.layout.add_widget(self.rpmReadout)
         self.last = self.rpmReadout
 
-
-        ##Define Oil Pressure
-        #Define Gauge
+    def buildOilPressure(self, *largs):
         self.oilPressure = 0
         self.oilPos = (-480, 50)
         self.oilOutline = Image(source='images/oilOutline.png', pos=self.oilPos)
@@ -78,6 +86,8 @@ class DashboardApp(App):
         self.oilLabel = Label(text = "45.5 PSI" , pos=(-480, -50), font_size=30, font_name='rpmFont')
         self.layout.add_widget(self.oilLabel)
         self.lastOilLabel = self.oilLabel
+
+    def buildWater(self, *largs):
         ##Define Water Temp
         #Define Gauge 
         self.lastWaterWidget = None
@@ -89,6 +99,8 @@ class DashboardApp(App):
         self.waterLabel = Label(text = "0° C" , pos=(0, -45), font_size=30, font_name='rpmFont')
         self.layout.add_widget(self.waterLabel)
         self.lastWaterLabel = self.waterLabel
+
+    def buildVoltage(self, *largs):
         #Voltage
         self.voltage = 0
         self.lastVoltageWidget = None
@@ -97,11 +109,10 @@ class DashboardApp(App):
         self.layout.add_widget(self.voltageOutline)
         self.voltageLabel = self.lastVoltageLabel = Label(text = "11.89 V" , pos=(350, -45), font_size=30, font_name='rpmFont')
         self.layout.add_widget(self.voltageLabel)
-        return self.layout
-    
-    def drawGauges(self, *largs):
-        self.drawVoltage(self)
-        self.drawWater(self)
+
+    def updateGauges(self, *largs):
+        self.updateVoltage(self)
+        self.updateWater(self)
 
     def updateRPM(self, *largs):
         self.rpmStencil.width = self.rpmSpeed * 0.1543
@@ -115,7 +126,7 @@ class DashboardApp(App):
         #This line Re-adds the widget to the screen
         self.layout.add_widget(self.rpmReadout)
     
-    def drawOilPressure(self, *largs):
+    def updateOilPressure(self, *largs):
         #Oil Pressure will be assigned by getCanMessages function
         #Get Raw Input of the Haltech 
         rawSignal = self.oilPressure
@@ -145,7 +156,7 @@ class DashboardApp(App):
         #This line Re-adds the widget to the screen
         self.layout.add_widget(self.oilLabel)
 
-    def drawVoltage(self, *largs):
+    def updateVoltage(self, *largs):
 
         self.voltage = 24
         #Builds and image - takes value between 0 and 32.
@@ -157,7 +168,7 @@ class DashboardApp(App):
         self.lastVoltageWidget = self.voltageBar
         self.layout.add_widget(self.voltageBar)
 
-    def drawWater(self, *largs):
+    def updateWater(self, *largs):
 
         #Range from 40-140
         #Range scale 0-32
