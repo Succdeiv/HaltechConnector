@@ -42,7 +42,8 @@ class DashboardApp(App):
         self.can_bus.RECV_LOGGING_LEVEL=0
         Clock.schedule_interval(partial(self.getCanMessages, self), 0.01)
         Clock.schedule_interval(partial(self.updateRPM, self), 0.05)
-        Clock.schedule_interval(partial(self.drawGauges, self), 0.05)
+        Clock.schedule_interval(partial(self.drawGauges, self), 0.1)
+        Clock.schedule_interval(partial(self.drawOilPressure, self), 0.05)
         #Define Layout and Gauges
         LabelBase.register(name='rpmFont', fn_regular='RPM.ttf')
         #RPM Scale
@@ -85,8 +86,9 @@ class DashboardApp(App):
         self.waterOutline = Image(source='images/coolantOutline.png', pos=self.waterPos)
         self.layout.add_widget(self.waterOutline)
         #Define Label
-        self.waterLabel = Label(text = "98.8° C" , pos=(0, -45), font_size=30, font_name='rpmFont')
+        self.waterLabel = Label(text = "0° C" , pos=(0, -45), font_size=30, font_name='rpmFont')
         self.layout.add_widget(self.waterLabel)
+        self.lastWaterLabel = self.waterLabel
         #Voltage
         self.voltage = 0
         self.lastVoltageWidget = None
@@ -98,7 +100,6 @@ class DashboardApp(App):
         return self.layout
     
     def drawGauges(self, *largs):
-        self.drawOilPressure(self)
         self.drawVoltage(self)
         self.drawWater(self)
 
@@ -137,7 +138,7 @@ class DashboardApp(App):
         self.layout.add_widget(self.oilPressureBar)
         self.oilLabel = Label(text = "{} PSI".format(str(actualSignal)) , pos=(-480, -50), font_size=30, font_name='rpmFont')
 
-        #This line Removes the Last RPM Signal From the Dashboard
+        #This line Removes the Last Oil Signal From the Dashboard
         self.layout.remove_widget(self.lastOilLabel)
         #This line sets the last current readout to self.last, so it can be removed
         self.lastOilLabel = self.oilLabel
@@ -158,9 +159,22 @@ class DashboardApp(App):
 
     def drawWater(self, *largs):
 
-        self.waterTemp = 28
+        #Range from 40-140
+        #Range scale 0-32
+        if self.waterTemp < 40:
+            displayInt = 0
+        elif self.waterTemp > 40 and self.waterTemp <140:
+            #Scale to Bar 
+            displayInt = abs(round((self.waterTemp - 40 )/3))
+        else:
+            displayInt = 32
+        
+        if displayInt > 32:
+            displayInt = 32
+            
+
         #Builds and image - takes value between 0 and 32.
-        self.waterBar = Image(source='s2kGaugeBars/s2k_' + str(self.waterTemp) + '.png',
+        self.waterBar = Image(source='s2kGaugeBars/s2k_' + str(displayInt) + '.png',
              pos = self.waterPos)
         #Removes Old Water Graph
         if self.lastWaterWidget:
@@ -168,6 +182,16 @@ class DashboardApp(App):
         self.lastWaterWidget = self.waterBar
         #print(self.oilPressure)
         self.layout.add_widget(self.waterBar)
+
+        #Build Label for Water Temp
+        self.waterLabel = Label(text = "{}° C".format(self.waterTemp) , pos=(0, -45), font_size=30, font_name='rpmFont')
+
+        #This line Removes the Last Oil Signal From the Dashboard
+        self.layout.remove_widget(self.lastWaterLabel)
+        #This line sets the last current readout to self.last, so it can be removed
+        self.lastWaterLabel = self.waterLabel
+        #This line Re-adds the widget to the screen
+        self.layout.add_widget(self.waterLabel)
 
     def getCanMessages(self, *largs):
             #Check Last 100 Messages, Get Latest Signals - This may need to be updated Later
@@ -185,8 +209,8 @@ class DashboardApp(App):
                     elif message.arbitration_id == 882:
                         self.voltage = dbc.decode_message(message.arbitration_id, message.data).get('Battery_Voltage')
 
-                else:
-                    print("No Message on Can0")
+                #else:
+                    #print("No Message on Can0")
 
 
     def colourByValue(self, green, yellow, value):
