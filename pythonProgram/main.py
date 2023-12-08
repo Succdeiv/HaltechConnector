@@ -115,9 +115,9 @@ class DashboardApp(App):
         self.updateWater(self)
 
     def updateRPM(self, *largs):
-        #self.rpmStencil.width = self.rpmSpeed * 0.1543
+        self.rpmStencil.width = self.rpmSpeed * 0.1543
         #Testing Value
-        self.rpmStencil.width = 1000 
+        #self.rpmStencil.width = 1000 
 
         self.rpmColour = self.colourByValue(3500, 5500, self.rpmSpeed)
         #This line creates the label with the text RPM + The current speed of the Engine
