@@ -60,12 +60,12 @@ class DashboardApp(App):
         self.rpmSpeed = 0
         Window.size = (1280, 720)
         self.layout = FloatLayout(size=Window.size)
-        self.rpmScale = Image(source='images/barScale.png', size=(1600, 200), pos_hint={'x':0, 'y':.36})
+        self.rpmScale = Image(source='images/barScale.png', size=(1600, 200), pos_hint={'x':0, 'y':0.2})
         self.layout.add_widget(self.rpmScale)
         self.numberColour = "32F30F"
         #RPM Gradient
-        self.rpmStencil = StencilView(size_hint=(None,None), size=(1000, 199), pos=(0,487))
-        self.rpmBar = Image(source='images/gradBar.png', size=(1600, 199), pos=(-170,487))
+        self.rpmStencil = StencilView(size_hint=(None,None), size=(1000, 199), pos=(0,370))
+        self.rpmBar = Image(source='images/gradBar.png', size=(1600, 199), pos=(-170,370))
         self.rpmStencil.add_widget(self.rpmBar)
         self.layout.add_widget(self.rpmStencil)
         self.rpmReadout = Label(text = "RPM : "+ str(self.rpmSpeed),pos=(-290,140), font_size=50, font_name='rpmFont')
@@ -74,7 +74,7 @@ class DashboardApp(App):
 
     def buildOilPressure(self, *largs):
         self.oilPressure = 0
-        self.oilPos = (-480, 50)
+        self.oilPos = (-480, -50)
         self.oilOutline = Image(source='images/oilOutline.png', pos=self.oilPos)
         self.layout.add_widget(self.oilOutline)
         self.lastOilWidget = None
@@ -83,7 +83,7 @@ class DashboardApp(App):
         self.oilIcon = Image(source='images/oilPresIcon.png', size_hint_y= None, height= 35, pos=self.oilLogoPos)
         self.layout.add_widget(self.oilIcon)
         #Define Label 
-        self.oilLabel = Label(text = "45.5 PSI" , pos=(-480, -50), font_size=30, font_name='rpmFont')
+        self.oilLabel = Label(text = "45.5 PSI" , pos=(-480, -150), font_size=30, font_name='rpmFont')
         self.layout.add_widget(self.oilLabel)
         self.lastOilLabel = self.oilLabel
 
@@ -92,11 +92,11 @@ class DashboardApp(App):
         #Define Gauge 
         self.lastWaterWidget = None
         self.waterTemp = 0
-        self.waterPos = (0, 50)
+        self.waterPos = (0, -50)
         self.waterOutline = Image(source='images/coolantOutline.png', pos=self.waterPos)
         self.layout.add_widget(self.waterOutline)
         #Define Label
-        self.waterLabel = Label(text = "0° C" , pos=(0, -45), font_size=30, font_name='rpmFont')
+        self.waterLabel = Label(text = "0° C" , pos=(0, -145), font_size=30, font_name='rpmFont')
         self.layout.add_widget(self.waterLabel)
         self.lastWaterLabel = self.waterLabel
 
@@ -104,10 +104,10 @@ class DashboardApp(App):
         #Voltage
         self.voltage = 0
         self.lastVoltageWidget = None
-        self.voltagePos = (480, 50)
+        self.voltagePos = (480, -50)
         self.voltageOutline = Image(source='images/batteryOutline.png', pos=self.voltagePos)
         self.layout.add_widget(self.voltageOutline)
-        self.voltageLabel = self.lastVoltageLabel = Label(text = "0 V" , pos=(480, -45), font_size=30, font_name='rpmFont')
+        self.voltageLabel = self.lastVoltageLabel = Label(text = "0 V" , pos=(480, -145), font_size=30, font_name='rpmFont')
         self.layout.add_widget(self.voltageLabel)
 
     def updateGauges(self, *largs):
@@ -115,10 +115,13 @@ class DashboardApp(App):
         self.updateWater(self)
 
     def updateRPM(self, *largs):
-        self.rpmStencil.width = self.rpmSpeed * 0.1543
+        #self.rpmStencil.width = self.rpmSpeed * 0.1543
+        #Testing Value
+        self.rpmStencil.width = 1000 
+
         self.rpmColour = self.colourByValue(3500, 5500, self.rpmSpeed)
         #This line creates the label with the text RPM + The current speed of the Engine
-        self.rpmReadout = Label(text = 'RPM : ' + '[color={}]'.format(self.rpmColour) + str(self.rpmSpeed) + '[/color]',pos=(-375,180), font_size=50, font_name='rpmFont', markup=True)
+        self.rpmReadout = Label(text = 'RPM : ' + '[color={}]'.format(self.rpmColour) + str(self.rpmSpeed) + '[/color]',pos=(-375, 50), font_size=50, font_name='rpmFont', markup=True)
         #This line Removes the Last RPM Signal From the Dashboard
         self.layout.remove_widget(self.last)
         #This line sets the last current readout to self.last, so it can be removed
@@ -147,7 +150,7 @@ class DashboardApp(App):
 
         #Define Label for Displaying Raw Output
         self.layout.add_widget(self.oilPressureBar)
-        self.oilLabel = Label(text = "{} PSI".format(str(actualSignal)) , pos=(-480, -50), font_size=30, font_name='rpmFont')
+        self.oilLabel = Label(text = "{} PSI".format(str(actualSignal)) , pos=(-480, -150), font_size=30, font_name='rpmFont')
 
         #This line Removes the Last Oil Signal From the Dashboard
         self.layout.remove_widget(self.lastOilLabel)
@@ -158,7 +161,7 @@ class DashboardApp(App):
 
     def updateVoltage(self, *largs):
         #Builds and image - takes value between 0 and 32.
-        displayInt = round(self.voltage * 2)
+        displayInt = round(self.voltage * 1.5)
 
         if displayInt > 32:
             displayInt = 32
@@ -169,9 +172,10 @@ class DashboardApp(App):
             self.layout.remove_widget(self.lastVoltageWidget)
         self.lastVoltageWidget = self.voltageBar
         self.layout.add_widget(self.voltageBar)
-
+	    #Round Voltage to 1 Decimal
+        self.voltage = round(self.voltage, 2)
         #Define New and Remove Old Voltage Label
-        self.voltageLabel = Label(text = "{} V".format(self.voltage) , pos=(480, -45), font_size=30, font_name='rpmFont')
+        self.voltageLabel = Label(text = "{} V".format(self.voltage) , pos=(480, -145), font_size=30, font_name='rpmFont')
         #This line Removes the Last Oil Signal From the Dashboard
         self.layout.remove_widget(self.lastVoltageLabel)
         #This line sets the last current readout to self.last, so it can be removed
@@ -180,7 +184,6 @@ class DashboardApp(App):
         self.layout.add_widget(self.voltageLabel)
 
     def updateWater(self, *largs):
-
         #Range from 40-140
         #Range scale 0-32
         if self.waterTemp < 40:
@@ -206,7 +209,8 @@ class DashboardApp(App):
         self.layout.add_widget(self.waterBar)
 
         #Build Label for Water Temp
-        self.waterLabel = Label(text = "{}° C".format(self.waterTemp) , pos=(0, -45), font_size=30, font_name='rpmFont')
+        self.waterTemp = round(self.waterTemp, 2)
+        self.waterLabel = Label(text = "{}° C".format(self.waterTemp) , pos=(0, -145), font_size=30, font_name='rpmFont')
 
         #This line Removes the Last Oil Signal From the Dashboard
         self.layout.remove_widget(self.lastWaterLabel)
@@ -228,6 +232,7 @@ class DashboardApp(App):
                         #print(dbc.decode_message(message.arbitration_id, message.data).get('Oil_Pressure'))
                     elif message.arbitration_id == 992:
                         self.waterTemp = dbc.decode_message(message.arbitration_id, message.data).get('Coolant_Temperature')
+                        self.waterTemp = self.waterTemp - 273
                     elif message.arbitration_id == 882:
                         self.voltage = dbc.decode_message(message.arbitration_id, message.data).get('Battery_Voltage')
 
